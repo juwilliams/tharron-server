@@ -250,21 +250,25 @@ services:
   #############################################
 
   patch-server:
-    build:
-      context: ./patcher/server
-    restart: unless-stopped
-    volumes:
-      - patch-files:/patch-files
-    environment:
-      - PORT=4000
-      - PATCH_DIR=/patch-files
-      - SERVER_NAME=${SERVER_NAME:-EQEmu Server}
-      - SERVER_VERSION=${SERVER_VERSION:-1.0.0}
-      - PATCH_MESSAGE=${PATCH_MESSAGE:-Welcome! Checking for updates...}
-      - SERVER_NEWS=${SERVER_NEWS:-}
-      - TZ=${TZ:-US/Central}
-    networks:
-      - backend
+      build:
+        context: ./patcher/server
+      restart: unless-stopped
+      ports:
+        - "${IP_ADDRESS}:4000:4000"
+      volumes:
+        - patch-files:/patch-files
+      environment:
+        - PORT=4000
+        - PATCH_DIR=/patch-files
+        - SERVER_NAME=${SERVER_NAME:-EQEmu Server}
+        - SERVER_VERSION=${SERVER_VERSION:-1.0.0}
+        - PATCH_MESSAGE=${PATCH_MESSAGE:-Welcome! Checking for updates...}
+        - SERVER_NEWS=${SERVER_NEWS:-}
+        - NEWS_URL=${NEWS_URL:-}
+        - NEWS_CACHE_MS=${NEWS_CACHE_MS:-60000}
+        - TZ=${TZ:-US/Central}
+      networks:
+        - backend
 
   patch-server-proxy:
     build: ./containers/http-proxy
