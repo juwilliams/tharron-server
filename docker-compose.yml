@@ -273,15 +273,19 @@ services:
       networks:
         - backend
 
-  patch-server-proxy:
-    build: ./containers/http-proxy
-    restart: unless-stopped
-    ports:
-      - "${IP_ADDRESS}:4000:80"
-    environment:
-      - PROXY_PASS=http://patch-server:4000
-      - TZ=${TZ:-US/Central}
-    networks:
-      - backend
-    depends_on:
-      - patch-server
+  # patch-server-proxy disabled — it required BASIC_AUTH env vars (which weren't
+  # set) and would conflict with patch-server on host port 4000 anyway. The
+  # patch-server container already exposes 4000 publicly without auth, which
+  # is what we want for friends to download the patcher.
+  # patch-server-proxy:
+  #   build: ./containers/http-proxy
+  #   restart: unless-stopped
+  #   ports:
+  #     - "${IP_ADDRESS}:4000:80"
+  #   environment:
+  #     - PROXY_PASS=http://patch-server:4000
+  #     - TZ=${TZ:-US/Central}
+  #   networks:
+  #     - backend
+  #   depends_on:
+  #     - patch-server
