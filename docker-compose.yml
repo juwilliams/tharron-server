@@ -289,3 +289,71 @@ services:
   #     - backend
   #   depends_on:
   #     - patch-server
+
+  #############################################
+  # eqemu-forge web app (Tharron)
+  #   - eqemu-forge-api: Node + TypeScript + Express, read-only DB
+  #   - eqemu-forge-web: Vite + React + TS + SASS, served by nginx
+  # api is not exposed on the host; nginx in the web container proxies /api/*
+  #############################################
+
+  eqemu-forge-api:
+    build:
+      context: ../juwilliams/eqemu-forge/website/api
+    restart: unless-stopped
+    environment:
+      - PORT=4001
+      - SERVER_NAME=${SERVER_NAME:-Tharron}
+      - SERVER_VERSION=${SERVER_VERSION:-1.0.0}
+      - SERVER_PUBLIC_IP=${EQEMU_FORGE_PUBLIC_IP:-${IP_ADDRESS}}
+      - SERVER_LOGIN_PORT=${EQEMU_FORGE_LOGIN_PORT:-5999}
+      - PATCH_SERVER_URL=${PATCH_SERVER_URL:-http://${IP_ADDRESS}:4000}
+      - EQEMU_FORGE_DB_HOST=mariadb
+      - EQEMU_FORGE_DB_PORT=3306
+      - EQEMU_FORGE_DB_USER=${EQEMU_FORGE_DB_USER:-${MARIADB_USER}}
+      - EQEMU_FORGE_DB_PASSWORD=${EQEMU_FORGE_DB_PASSWORD:-${MARIADB_PASSWORD}}
+      - EQEMU_FORGE_DB_NAME=${EQEMU_FORGE_DB_NAME:-${MARIADB_DATABASE}}
+      - TZ=${TZ:-US/Central}
+    # Live-mount editable content so features.json / server-info.json changes
+    # are picked up without rebuilding the image (restart still required).
+    volumes:
+      - ../juwilliams/eqemu-forge/website/api/src/content:/app/dist/content
+    networks:
+      - backend
+    depends_on:
+      - mariadb
+
+  # web is internal-only; the cloudflared tunnel below reaches it over the
+  # backend network and Cloudflare terminates TLS at its edge. Not published
+  # on the host.
+  eqemu-forge-web:
+    build:
+      context: ../juwilliams/eqemu-forge/website/web
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      - TZ=${TZ:-US/Central}
+    networks:
+      - backend
+    depends_on:
+      - eqemu-forge-api
+
+  #############################################
+  # cloudflared — Cloudflare Tunnel for the web app
+  #   outbound-only connection to Cloudflare's edge (no open inbound ports,
+  #   works behind AT&T's blocked 80/443). TLS is terminated at Cloudflare.
+  #   Routing (tharroneq.com -> http://eqemu-forge-web:80) is configured in
+  #   the Cloudflare Zero Trust dashboard for the tunnel that issued the token.
+  #############################################
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    environment:
+      - TZ=${TZ:-US/Central}
+    networks:
+      - backend
+    depends_on:
+      - eqemu-forge-web

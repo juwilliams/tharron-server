@@ -98,6 +98,10 @@ ifeq ($(ENABLE_BACKUP_CRON),true)
 	RUN_SERVICES+= backup-cron
 endif
 
+ifeq ($(ENABLE_EQEMU_FORGE_WEB),true)
+	RUN_SERVICES+= eqemu-forge-api eqemu-forge-web
+endif
+
 #----------------------
 # env
 #----------------------
@@ -287,6 +291,25 @@ up-info: ##@info Shows web interfaces during make up
 	@echo "> PEQ Editor          | http://${IP_ADDRESS}:8081"
 	@echo "> PhpMyAdmin          | http://${IP_ADDRESS}:8082"
 	@echo "> EQEmu Admin (spire) | http://${IP_ADDRESS}:3000"
+ifeq ($(ENABLE_EQEMU_FORGE_WEB),true)
+	@echo "> Tharron Web App     | http://${IP_ADDRESS}:${EQEMU_FORGE_WEB_PORT:-8090}"
+endif
+
+#----------------------
+# eqemu-forge
+#----------------------
+
+forge-up: ##@eqemu-forge Bring up the Tharron web app (api + web)
+	$(DOCKER) up -d --build eqemu-forge-api eqemu-forge-web
+
+forge-down: ##@eqemu-forge Stop the Tharron web app
+	$(DOCKER) stop eqemu-forge-web eqemu-forge-api
+
+forge-rebuild: ##@eqemu-forge Rebuild and restart the Tharron web app
+	$(DOCKER) up -d --build --force-recreate eqemu-forge-api eqemu-forge-web
+
+forge-logs: ##@eqemu-forge Tail logs from both Tharron web services
+	$(DOCKER) logs -f --tail=100 eqemu-forge-api eqemu-forge-web
 ifeq ("$(SPIRE_DEV)", "true")
 	@echo "----------------------------------"
 	@echo "> Spire Backend Development  | http://${IP_ADDRESS}:3010"
