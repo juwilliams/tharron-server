@@ -300,13 +300,13 @@ endif
 #----------------------
 
 forge-up: ##@eqemu-forge Bring up the Tharron web app (api + web)
-	$(DOCKER) up -d --build eqemu-forge-api eqemu-forge-web
+	$(DOCKER) up -d --build --no-deps eqemu-forge-api eqemu-forge-web
 
 forge-down: ##@eqemu-forge Stop the Tharron web app
 	$(DOCKER) stop eqemu-forge-web eqemu-forge-api
 
 forge-rebuild: ##@eqemu-forge Rebuild and restart the Tharron web app
-	$(DOCKER) up -d --build --force-recreate eqemu-forge-api eqemu-forge-web
+	$(DOCKER) up -d --build --force-recreate --no-deps eqemu-forge-api eqemu-forge-web
 
 forge-logs: ##@eqemu-forge Tail logs from both Tharron web services
 	$(DOCKER) logs -f --tail=100 eqemu-forge-api eqemu-forge-web
