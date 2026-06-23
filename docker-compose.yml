@@ -313,6 +313,11 @@ services:
       - EQEMU_FORGE_DB_USER=${EQEMU_FORGE_DB_USER:-${MARIADB_USER}}
       - EQEMU_FORGE_DB_PASSWORD=${EQEMU_FORGE_DB_PASSWORD:-${MARIADB_PASSWORD}}
       - EQEMU_FORGE_DB_NAME=${EQEMU_FORGE_DB_NAME:-${MARIADB_DATABASE}}
+      # Website account section: proxy credential ops to the login server and
+      # sign session JWTs. See .env for the token (login_api_tokens row) + secret.
+      - EQEMU_FORGE_LS_API_URL=${EQEMU_FORGE_LS_API_URL:-http://eqemu-server:6000}
+      - EQEMU_FORGE_LS_API_TOKEN=${EQEMU_FORGE_LS_API_TOKEN:-}
+      - EQEMU_FORGE_JWT_SECRET=${EQEMU_FORGE_JWT_SECRET:-}
       - TZ=${TZ:-US/Central}
     # Live-mount editable content so features.json / server-info.json changes
     # are picked up without rebuilding the image (restart still required).
@@ -357,3 +362,50 @@ services:
       - backend
     depends_on:
       - eqemu-forge-web
+
+  #############################################
+  # Tharron Forge Admin (LOCAL ONLY)
+  #   - admin-api: Node + TS + Express, READ-ONLY DB; emits idempotent .sql
+  #   - admin-web: Vite + React + TS + SASS, served by nginx
+  # Deliberately NOT routed through cloudflared. admin-web is published only on
+  # 127.0.0.1 so the tool is reachable from the host machine and nowhere else.
+  # admin-api is internal-only; nginx in admin-web proxies /api/*.
+  #############################################
+
+  admin-api:
+    build:
+      context: ../juwilliams/eqemu-forge/admin/api
+    restart: unless-stopped
+    environment:
+      - PORT=4002
+      - SERVER_NAME=${SERVER_NAME:-Tharron}
+      - ADMIN_AUTH_USER=${ADMIN_AUTH_USER:-admin}
+      - ADMIN_AUTH_PASSWORD=${ADMIN_AUTH_PASSWORD:-}
+      - ADMIN_JWT_SECRET=${ADMIN_JWT_SECRET:-}
+      - ADMIN_TOKEN_TTL=${ADMIN_TOKEN_TTL:-43200}
+      # Reuse the same read-only DB credentials as the public forge api.
+      - EQEMU_FORGE_DB_HOST=mariadb
+      - EQEMU_FORGE_DB_PORT=3306
+      - EQEMU_FORGE_DB_USER=${EQEMU_FORGE_DB_USER:-${MARIADB_USER}}
+      - EQEMU_FORGE_DB_PASSWORD=${EQEMU_FORGE_DB_PASSWORD:-${MARIADB_PASSWORD}}
+      - EQEMU_FORGE_DB_NAME=${EQEMU_FORGE_DB_NAME:-${MARIADB_DATABASE}}
+      - TZ=${TZ:-US/Central}
+    networks:
+      - backend
+    depends_on:
+      - mariadb
+
+  admin-web:
+    build:
+      context: ../juwilliams/eqemu-forge/admin
+      dockerfile: web/Dockerfile
+    restart: unless-stopped
+    # Bind to loopback only — never exposed to the LAN or the internet.
+    ports:
+      - "127.0.0.1:${ADMIN_WEB_PORT:-8091}:80"
+    environment:
+      - TZ=${TZ:-US/Central}
+    networks:
+      - backend
+    depends_on:
+      - admin-api

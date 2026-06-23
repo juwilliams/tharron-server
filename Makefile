@@ -102,6 +102,10 @@ ifeq ($(ENABLE_EQEMU_FORGE_WEB),true)
 	RUN_SERVICES+= eqemu-forge-api eqemu-forge-web
 endif
 
+ifeq ($(ENABLE_FORGE_ADMIN),true)
+	RUN_SERVICES+= admin-api admin-web
+endif
+
 #----------------------
 # env
 #----------------------
@@ -299,17 +303,36 @@ endif
 # eqemu-forge
 #----------------------
 
-forge-up: ##@eqemu-forge Bring up the Tharron web app (api + web)
+forge-sync-class-changes: ##@eqemu-forge Sync server class abilities into the website API content (host-side, before image build)
+	node ../juwilliams/eqemu-forge/website/api/scripts/sync-class-changes.mjs
+
+forge-up: forge-sync-class-changes ##@eqemu-forge Bring up the Tharron web app (api + web)
 	$(DOCKER) up -d --build --no-deps eqemu-forge-api eqemu-forge-web
 
 forge-down: ##@eqemu-forge Stop the Tharron web app
 	$(DOCKER) stop eqemu-forge-web eqemu-forge-api
 
-forge-rebuild: ##@eqemu-forge Rebuild and restart the Tharron web app
+forge-rebuild: forge-sync-class-changes ##@eqemu-forge Rebuild and restart the Tharron web app
 	$(DOCKER) up -d --build --force-recreate --no-deps eqemu-forge-api eqemu-forge-web
 
 forge-logs: ##@eqemu-forge Tail logs from both Tharron web services
 	$(DOCKER) logs -f --tail=100 eqemu-forge-api eqemu-forge-web
+
+#----------------------
+# forge-admin (local only)
+#----------------------
+
+admin-up: ##@forge-admin Bring up the local Forge Admin tool (api + web)
+	$(DOCKER) up -d --build --no-deps admin-api admin-web
+
+admin-down: ##@forge-admin Stop the Forge Admin tool
+	$(DOCKER) stop admin-web admin-api
+
+admin-rebuild: ##@forge-admin Rebuild and restart the Forge Admin tool
+	$(DOCKER) up -d --build --force-recreate --no-deps admin-api admin-web
+
+admin-logs: ##@forge-admin Tail logs from both Forge Admin services
+	$(DOCKER) logs -f --tail=100 admin-api admin-web
 ifeq ("$(SPIRE_DEV)", "true")
 	@echo "----------------------------------"
 	@echo "> Spire Backend Development  | http://${IP_ADDRESS}:3010"
